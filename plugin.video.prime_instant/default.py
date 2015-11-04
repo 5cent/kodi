@@ -453,7 +453,7 @@ def listShows(url):
     dlParams = []
     for i in range(1, len(spl), 1):
         entry = spl[i]
-        match = re.compile('asin="(.+?)"', re.DOTALL).findall(entry)
+        match = re.compile('data-asin="(.+?)"', re.DOTALL).findall(entry)
         isPaidVideo = False
         if showPaidVideos:
             if ">Shop Instant Video<" in entry:
@@ -743,7 +743,7 @@ def helloPrimeProxy():
         return False
 
 def playVideo(videoID, selectQuality=False, playTrailer=False):
-    debug("Start Player for videoID=" + videoID)
+	debug("Start Player for videoID=" + videoID)
 	xbmc.Player().play("https://www.amazon.de/piv-apk-play?asin=" + videoID)
 	
 #    streamTitles = []
