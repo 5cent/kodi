@@ -461,7 +461,7 @@ def listShows(url):
             if ">Amazon Video:<" in entry:
                 isPaidVideo = True
         #if match and ">Prime Instant Video<" in entry:
-        if match and ((">Prime Instant Video<" in entry) or (isPaidVideo)):
+        if match and ((">Prime Video<" in entry) or (isPaidVideo)):
             videoID = match[0]
             match1 = re.compile('title="(.+?)"', re.DOTALL).findall(entry)
             match2 = re.compile('class="ilt2">(.+?)<', re.DOTALL).findall(entry)
