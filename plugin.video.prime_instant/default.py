@@ -312,7 +312,7 @@ def listWatchList(url):
                 else:
                     print match[0]
                     return
-                match = re.compile('" asin="(.+?)"', re.DOTALL).findall(entry)
+                match = re.compile('" data-asin="(.+?)"', re.DOTALL).findall(entry)
                 if not match:
                     match = re.compile('id="(.+?)"', re.DOTALL).findall(entry)
                 videoID = match[0]
@@ -398,8 +398,8 @@ def listMovies(url):
     videoimage = ScrapeUtils.VideoImage()
     for i in range(1, len(spl), 1):
         entry = spl[i]
-        match = re.compile('asin="(.+?)"', re.DOTALL).findall(entry)
-        if match and ">Prime Instant Video<" in entry:
+        match = re.compile('data-asin="(.+?)"', re.DOTALL).findall(entry)
+        if match and ">Prime Video<" in entry:
             videoID = match[0]
             match1 = re.compile('title="(.+?)"', re.DOTALL).findall(entry)
             match2 = re.compile('class="ilt2">(.+?)<', re.DOTALL).findall(entry)
@@ -695,7 +695,7 @@ def listEpisodes(seriesID, seasonID, thumb, content="", seriesName=""):
 def listGenres(url, videoType):
     content = getUnicodePage(url)
     debug(content)
-    content = content[content.find('<ul class="column vPage1">'):]
+    content = content[content.find('<ul class="s-see-all-pagination-column vPage1">'):]
     content = content[:content.find('</div>')]
     match = re.compile('href="(.+?)">.+?>(.+?)</span>.+?>(.+?)<', re.DOTALL).findall(content)
     for url, title, nr in match:
@@ -743,214 +743,217 @@ def helloPrimeProxy():
         return False
 
 def playVideo(videoID, selectQuality=False, playTrailer=False):
-    streamTitles = []
-    streamBitrates = []
-    streamURLs = []
-    cMenu = False
-    if selectQuality:
-        cMenu = True
-    if maxBitrate==-1:
-        selectQuality = True
-    try: content = getUnicodePage(urlMain+"/dp/"+videoID + "/?_encoding=UTF8")
-    except: content = getUnicodePage(urlMainS+"/dp/"+videoID + "/?_encoding=UTF8")
-    if login(content, statusOnly=True) == "none":
-        qlogin = login()
-        if qlogin == "noprime" or qlogin == "prime":
-            content = getUnicodePage(urlMain+"/dp/"+videoID + "/?_encoding=UTF8")
-    
-    hasTrailer = False
-    #if '&quot;playTrailer&quot;:true' in content:
-    #    hasTrailer = True
-    matchCID=re.compile('"customerID":"(.+?)"').findall(content)
-    if matchCID:
-        # prepare swf contents as fallback
-        noFlash = False # this var does not specify if player uses http or rtmp!!!
-        matchSWFUrl=re.compile('<script type="text/javascript" src="(.+?webplayer.+?webplayer.+?js)"', re.DOTALL).findall(content)
-        if matchSWFUrl:
-            flashContent = getUnicodePage(matchSWFUrl[0])
-            matchSWF=re.compile('LEGACY_FLASH_SWF="(.+?)"').findall(flashContent)
-            matchDID=re.compile('FLASH_GOOGLE_TV="(.+?)"').findall(flashContent)
-            if not matchDID:
-                matchDID = [deviceTypeID]
-        else:
-            noFlash = True
-            matchDID = [deviceTypeID]
-        #if '"episode":{"name":"' in content:
-        #    matchTitle=re.compile('"episode":{"name":"(.+?)"', re.DOTALL).findall(content)
-        #else:
-        #    matchTitle=re.compile('"contentRating":".+?","name":"(.+?)"', re.DOTALL).findall(content)
-        matchThumb=re.compile('"video":.+?"thumbnailUrl":"(.+?)"', re.DOTALL).findall(content)
-        matchToken=re.compile('"csrfToken":"(.+?)"', re.DOTALL).findall(content)
-        matchMID=re.compile('"marketplaceID":"(.+?)"').findall(content)
-        asincontent = getUnicodePage('https://'+apiMain+'.amazon.com/cdp/catalog/GetASINDetails?version=2&format=json&asinlist='+videoID+'&deviceID='+urllib.quote_plus(matchCID[0].encode("utf8"))+'&includeRestrictions=true&deviceTypeID='+matchDID[0]+'&firmware=WIN%2017,0,0,188%20PlugIn&NumberOfResults=1')
-        asininfo = json.loads(asincontent)
-        matchTitle = [asininfo["message"]["body"]["titles"][0]["title"]]
-        hasTrailer = asininfo["message"]["body"]["titles"][0]["trailerAvailable"]
-        asinruntime = asininfo["message"]["body"]["titles"][0]["runtime"]["valueMillis"]
-        avail_langs = selectLang(content)
-        if not playTrailer or (playTrailer and hasTrailer and preferAmazonTrailer and siteVersion!="com"):
-            content = getUnicodePage(urlMainS+'/gp/video/streaming/player-token.json?callback=jQuery1640'+''.join(random.choice(string.digits) for x in range(18))+'_'+str(int(time.time()*1000))+'&csrftoken='+urllib.quote_plus(matchToken[0].encode("utf8"))+'&_='+str(int(time.time()*1000)))
-            matchToken=re.compile('"token":"(.+?)"', re.DOTALL).findall(content)
-        content = ""
-        if playTrailer and hasTrailer and preferAmazonTrailer and siteVersion!="com":
-            content = getUnicodePage('https://'+apiMain+'.amazon.com/cdp/catalog/GetStreamingTrailerUrls?version=1&format=json&firmware=WIN%2011,7,700,224%20PlugIn&marketplaceID='+urllib.quote_plus(matchMID[0].encode("utf8"))+'&token='+urllib.quote_plus(matchToken[0].encode("utf8"))+'&deviceTypeID='+matchDID[0]+'&asin='+videoID+'&customerID='+urllib.quote_plus(matchCID[0].encode("utf8"))+'&deviceID='+urllib.quote_plus(matchCID[0].encode("utf8"))+str(int(time.time()*1000))+videoID)
-            selectQuality = True
-        elif not playTrailer:
-            if (selectLanguage == "1") and (avail_langs is not None):
-                dialog = xbmcgui.Dialog()
-                sel_lang = []
-                for val in avail_langs:
-                    sel_lang.append(val[1])
-                lnr = dialog.select(translation(30050), sel_lang)
-                if lnr>=0:
-                    playlanguage = "&audioTrackId=" + avail_langs[lnr][0]
-                else:
-                    playlanguage = ""
-            else:
-                playlanguage = ""
-            content = getUnicodePage('https://'+apiMain+'.amazon.com/cdp/catalog/GetStreamingUrlSets?version=1&format=json&firmware=WIN%2011,7,700,224%20PlugIn'+playlanguage+'&marketplaceID='+urllib.quote_plus(matchMID[0].encode("utf8"))+'&token='+urllib.quote_plus(matchToken[0].encode("utf8"))+'&deviceTypeID='+matchDID[0]+'&asin='+videoID+'&customerID='+urllib.quote_plus(matchCID[0].encode("utf8"))+'&deviceID='+urllib.quote_plus(matchCID[0].encode("utf8"))+str(int(time.time()*1000))+videoID)
-        elif playTrailer:
-            try:
-                strT = ""
-                if siteVersion=="de":
-                    strT = "+german"
-                myYoutubeApiKey = cipherKey("bXHbr7m5hoHjuHY0OIx1N/7gfeYPe9ePDewCOb2X8wvn0XOAjy+C")
-                queryString = urllib.quote_plus(cleanTitle(matchTitle[0]).encode("utf-8"))+"+trailer"+strT
-                queryUrl = "https://www.googleapis.com/youtube/v3/search?part=id&q=" + queryString + "&order=relevance&key=" + myYoutubeApiKey
-                searchRes = getUnicodePage(queryUrl)
-                searchResJson = json.loads(searchRes)
-                vidid = searchResJson['items'][0]['id']['videoId']
-                xbmc.Player().play("plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=" + vidid)
-            except Exception as e:
-                xbmc.executebuiltin('XBMC.Notification(Info:,' + str(e) + ',10000,'+icon+')')
-                pass
-        debug(content)
-        if content:
-            if not "SUCCESS" in unicode(content):
-                content = json.loads(content)
-                ediag = xbmcgui.Dialog()
-                acode = str(content['message']['body']['code'])
-                amessage = str(content['message']['body']['message'])
-                ediag.ok('Amazon meldet: '+ acode, amessage)
-            else:
-                content = json.loads(content)
-                thumbUrl = matchThumb[0].replace(".jpg", "")
-                thumbUrl = thumbUrl[:thumbUrl.rfind(".")]+".jpg"
-                contentT = ""
-                try:
-                    contentT = content['message']['body']['urlSets']['streamingURLInfoSet'][0]['streamingURLInfo']
-                except:
-                    try:
-                        contentT = content['message']['body']['streamingURLInfoSet']['streamingURLInfo']
-                    except:
-                        pass
-                if contentT:
-                    url = ''
-                    for item in contentT:
-                        if selectQuality or usePrimeProxy:
-                            streamTitles.append(str(item['bitrate'])+"kb")
-                            streamBitrates.append(item['bitrate'])
-                            streamURLs.append(item['url'])
-                            url = item['url']
-                        elif item['bitrate']<=maxBitrate:
-                            url = item['url']
-                    if not rtmpMain in url or ("mp4?" in url and "auth=" in url):
-                        debug("no azvod server in list 0")
-                        debug(contentT)
-                        if len(content['message']['body']['urlSets']['streamingURLInfoSet']) > 1:
-                            if selectQuality or usePrimeProxy:
-                                streamTitles = []
-                                streamBitrates = []
-                                streamURLs = []
-                            for item in content['message']['body']['urlSets']['streamingURLInfoSet'][1]['streamingURLInfo']:
-                                if selectQuality or usePrimeProxy:
-                                    streamTitles.append(str(item['bitrate'])+"kb")
-                                    streamBitrates.append(item['bitrate'])
-                                    streamURLs.append(item['url'])
-                                elif item['bitrate']<=maxBitrate:
-                                    url = item['url']
-                            debug("using alternative list index 1")
-                            debug(content['message']['body']['urlSets']['streamingURLInfoSet'][1]['streamingURLInfo'])
-                        else:
-                            debug("unable to use alternative list, flash playback with rtmp will be used")
-                            pass
-                    if url:
-                        if selectQuality:
-                            dialog = xbmcgui.Dialog()
-                            nr=dialog.select(translation(30059), streamTitles)
-                            if nr>=0:
-                              url=streamURLs[nr]
-                        if url.startswith("rtmpe"):
-                            urlproto = "rtmpe://"
-                            urlsite = url[len(urlproto):url.find("/", len(urlproto))]
-                            urlrequest = url[url.find('mp4:')+4:]
-                            if (not rtmpMain in urlsite or ("mp4?" in url and "auth=" in url)) and not noFlash:
-                                debug("Using flash playback")
-                                flash_req1 = url[url.find(urlsite)+len(urlsite) + 1:url.find('/mp4:')]
-                                flash_tcUrl = urlproto + urlsite + ":1935/" + flash_req1 + "/"
-                                flash_app = flash_req1
-                                flash_playpath = url[url.find('mp4:'):]
-                                flash_url = url.replace('rtmpe','rtmp')
-                                url = flash_url+' swfVfy=1 swfUrl='+matchSWF[0]+' pageUrl='+urlMain+'/dp/'+videoID+' app='+flash_app+' playpath='+flash_playpath+' tcUrl=' + flash_tcUrl
-                            else:
-                                debug("Using http playback")
-                                url = 'http://' + urlsite + "/" + urlrequest
-                            if playTrailer or (selectQuality and cMenu):
-                                title = matchTitle[0]
-                                listitem = xbmcgui.ListItem(title, path=url, thumbnailImage=thumbUrl)
-                                xbmc.Player().play(url, listitem)
-                            else:
-                                if not usePrimeProxy: # or not helloPrimeProxy():
-                                    if usePrimeProxy:
-                                        xbmc.executebuiltin('XBMC.Notification(Info:,' + "PrimeProxy connection failed" + ',10000,'+icon+')')
-                                    title = matchTitle[0]
-                                    listitem = xbmcgui.ListItem(title, path=url, thumbnailImage=thumbUrl)
-                                    xbmcplugin.setResolvedUrl(pluginhandle, True, listitem)
-                                else:
-                                    useStreamingIndex = 0
-                                    title = matchTitle[0]
-                                    for w,i in enumerate(streamURLs):
-                                        wurl = i
-                                        wproto = "rtmpe://"
-                                        wsite = wurl[len(wproto):wurl.find("/", len(wproto))]
-                                        wrequest = wurl[wurl.find('mp4:')+4:]
-                                        streamURLs[w] = { 'url' : 'http://' + wsite + "/" + wrequest, 'bitrate': streamBitrates[w]}
-                                        if url == streamURLs[w]['url']:
-                                            useStreamingIndex = w
-                                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                                    primeproxyjson = json.dumps({"asin": videoID, "setProperties": {"StreamingIndex": useStreamingIndex, "Runtime" : asinruntime, "StreamingList": streamURLs, "ThumbnailImage": thumbUrl, "Title": title}})
-                                    primeproxyjson = base64.b64encode(primeproxyjson) + "\r\n"
-                                    s.connect(("127.0.0.1", 59910))
-                                    s.sendall(primeproxyjson)
-                                    pcdata = ""
-                                    while not "\r\n" in pcdata:
-                                        pcdata += s.recv(1024)
-                                        pass
-                                    s.close()
-                                    title = matchTitle[0]
-                                    listitem = xbmcgui.ListItem(title, path="http://127.0.0.1:59950/"+videoID + ".mp4", thumbnailImage=thumbUrl)
-                                    pcdata = json.loads(base64.b64decode(pcdata))
-                                    if "status" in pcdata and pcdata["status"] == "success":
-                                        xbmcplugin.setResolvedUrl(pluginhandle, True, listitem)
-                                    else:
-                                        xbmcplugin.setResolvedUrl(pluginhandle, False, listitem)
-
-
-                        elif url.startswith("http"):
-                            dialog = xbmcgui.Dialog()
-                            if dialog.yesno('Info', translation(30085)):
-                                content = getUnicodePage(urlMainS+"/gp/video/settings/ajax/player-preferences-endpoint.html", "rurl="+urllib.quote_plus(str(urlMainS+"/gp/video/settings","utf8"))+"&csrfToken="+urllib.quote_plus(addon.getSetting('csrfToken').encode("utf8"))+"&aiv-pp-toggle=flash")
-                                xbmc.executebuiltin('XBMC.Notification(Info:,'+translation(30086)+',10000,'+icon+')')
-                                playVideo(videoID, selectQuality)
-                    else:
-                        url = ''
-                        diag = xbmcgui.Dialog()
-                        diag.ok(translation(30092), translation(30093))
-                else:
-                    diag = xbmcgui.Dialog()
-                    diag.ok(translation(30094), translation(30095))
-    else:
-        xbmc.executebuiltin('XBMC.Notification(Info:,'+translation(30082)+',10000,'+icon+')')
+    debug("Start Player for videoID=" + videoID)
+	xbmc.Player().play("https://www.amazon.de/piv-apk-play?asin=" + videoID)
+	
+#    streamTitles = []
+#    streamBitrates = []
+#    streamURLs = []
+#    cMenu = False
+#    if selectQuality:
+#        cMenu = True
+#    if maxBitrate==-1:
+#        selectQuality = True
+#    try: content = getUnicodePage(urlMain+"/dp/"+videoID + "/?_encoding=UTF8")
+#    except: content = getUnicodePage(urlMainS+"/dp/"+videoID + "/?_encoding=UTF8")
+#    if login(content, statusOnly=True) == "none":
+#        qlogin = login()
+#        if qlogin == "noprime" or qlogin == "prime":
+#            content = getUnicodePage(urlMain+"/dp/"+videoID + "/?_encoding=UTF8")
+#    
+#    hasTrailer = False
+#    #if '&quot;playTrailer&quot;:true' in content:
+#    #    hasTrailer = True
+#    matchCID=re.compile('"customerID":"(.+?)"').findall(content)
+#    if matchCID:
+#        # prepare swf contents as fallback
+#        noFlash = False # this var does not specify if player uses http or rtmp!!!
+#        matchSWFUrl=re.compile('<script type="text/javascript" src="(.+?webplayer.+?webplayer.+?js)"', re.DOTALL).findall(content)
+#        if matchSWFUrl:
+#            flashContent = getUnicodePage(matchSWFUrl[0])
+#            matchSWF=re.compile('LEGACY_FLASH_SWF="(.+?)"').findall(flashContent)
+#            matchDID=re.compile('FLASH_GOOGLE_TV="(.+?)"').findall(flashContent)
+#            if not matchDID:
+#                matchDID = [deviceTypeID]
+#        else:
+#            noFlash = True
+#            matchDID = [deviceTypeID]
+#        #if '"episode":{"name":"' in content:
+#        #    matchTitle=re.compile('"episode":{"name":"(.+?)"', re.DOTALL).findall(content)
+#        #else:
+#        #    matchTitle=re.compile('"contentRating":".+?","name":"(.+?)"', re.DOTALL).findall(content)
+#        matchThumb=re.compile('"video":.+?"thumbnailUrl":"(.+?)"', re.DOTALL).findall(content)
+#        matchToken=re.compile('"csrfToken":"(.+?)"', re.DOTALL).findall(content)
+#        matchMID=re.compile('"marketplaceID":"(.+?)"').findall(content)
+#        asincontent = getUnicodePage('https://'+apiMain+'.amazon.com/cdp/catalog/GetASINDetails?version=2&format=json&asinlist='+videoID+'&deviceID='+urllib.quote_plus(matchCID[0].encode("utf8"))+'&includeRestrictions=true&deviceTypeID='+matchDID[0]+'&firmware=WIN%2017,0,0,188%20PlugIn&NumberOfResults=1')
+#        asininfo = json.loads(asincontent)
+#        matchTitle = [asininfo["message"]["body"]["titles"][0]["title"]]
+#        hasTrailer = asininfo["message"]["body"]["titles"][0]["trailerAvailable"]
+#        asinruntime = asininfo["message"]["body"]["titles"][0]["runtime"]["valueMillis"]
+#        avail_langs = selectLang(content)
+#        if not playTrailer or (playTrailer and hasTrailer and preferAmazonTrailer and siteVersion!="com"):
+#            content = getUnicodePage(urlMainS+'/gp/video/streaming/player-token.json?callback=jQuery1640'+''.join(random.choice(string.digits) for x in range(18))+'_'+str(int(time.time()*1000))+'&csrftoken='+urllib.quote_plus(matchToken[0].encode("utf8"))+'&_='+str(int(time.time()*1000)))
+#            matchToken=re.compile('"token":"(.+?)"', re.DOTALL).findall(content)
+#        content = ""
+#        if playTrailer and hasTrailer and preferAmazonTrailer and siteVersion!="com":
+#            content = getUnicodePage('https://'+apiMain+'.amazon.com/cdp/catalog/GetStreamingTrailerUrls?version=1&format=json&firmware=WIN%2011,7,700,224%20PlugIn&marketplaceID='+urllib.quote_plus(matchMID[0].encode("utf8"))+'&token='+urllib.quote_plus(matchToken[0].encode("utf8"))+'&deviceTypeID='+matchDID[0]+'&asin='+videoID+'&customerID='+urllib.quote_plus(matchCID[0].encode("utf8"))+'&deviceID='+urllib.quote_plus(matchCID[0].encode("utf8"))+str(int(time.time()*1000))+videoID)
+#            selectQuality = True
+#        elif not playTrailer:
+#            if (selectLanguage == "1") and (avail_langs is not None):
+#                dialog = xbmcgui.Dialog()
+#                sel_lang = []
+#                for val in avail_langs:
+#                    sel_lang.append(val[1])
+#                lnr = dialog.select(translation(30050), sel_lang)
+#                if lnr>=0:
+#                    playlanguage = "&audioTrackId=" + avail_langs[lnr][0]
+#                else:
+#                    playlanguage = ""
+#            else:
+#                playlanguage = ""
+#            content = getUnicodePage('https://'+apiMain+'.amazon.com/cdp/catalog/GetStreamingUrlSets?version=1&format=json&firmware=WIN%2011,7,700,224%20PlugIn'+playlanguage+'&marketplaceID='+urllib.quote_plus(matchMID[0].encode("utf8"))+'&token='+urllib.quote_plus(matchToken[0].encode("utf8"))+'&deviceTypeID='+matchDID[0]+'&asin='+videoID+'&customerID='+urllib.quote_plus(matchCID[0].encode("utf8"))+'&deviceID='+urllib.quote_plus(matchCID[0].encode("utf8"))+str(int(time.time()*1000))+videoID)
+#        elif playTrailer:
+#            try:
+#                strT = ""
+#                if siteVersion=="de":
+#                    strT = "+german"
+#                myYoutubeApiKey = cipherKey("bXHbr7m5hoHjuHY0OIx1N/7gfeYPe9ePDewCOb2X8wvn0XOAjy+C")
+#                queryString = urllib.quote_plus(cleanTitle(matchTitle[0]).encode("utf-8"))+"+trailer"+strT
+#                queryUrl = "https://www.googleapis.com/youtube/v3/search?part=id&q=" + queryString + "&order=relevance&key=" + myYoutubeApiKey
+#                searchRes = getUnicodePage(queryUrl)
+#                searchResJson = json.loads(searchRes)
+#                vidid = searchResJson['items'][0]['id']['videoId']
+#                xbmc.Player().play("plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=" + vidid)
+#            except Exception as e:
+#                xbmc.executebuiltin('XBMC.Notification(Info:,' + str(e) + ',10000,'+icon+')')
+#                pass
+#        debug(content)
+#        if content:
+#            if not "SUCCESS" in unicode(content):
+#                content = json.loads(content)
+#                ediag = xbmcgui.Dialog()
+#                acode = str(content['message']['body']['code'])
+#                amessage = str(content['message']['body']['message'])
+#                ediag.ok('Amazon meldet: '+ acode, amessage)
+#            else:
+#                content = json.loads(content)
+#                thumbUrl = matchThumb[0].replace(".jpg", "")
+#                thumbUrl = thumbUrl[:thumbUrl.rfind(".")]+".jpg"
+#                contentT = ""
+#                try:
+#                    contentT = content['message']['body']['urlSets']['streamingURLInfoSet'][0]['streamingURLInfo']
+#                except:
+#                    try:
+#                        contentT = content['message']['body']['streamingURLInfoSet']['streamingURLInfo']
+#                    except:
+#                        pass
+#                if contentT:
+#                    url = ''
+#                    for item in contentT:
+#                        if selectQuality or usePrimeProxy:
+#                            streamTitles.append(str(item['bitrate'])+"kb")
+#                            streamBitrates.append(item['bitrate'])
+#                            streamURLs.append(item['url'])
+#                            url = item['url']
+#                        elif item['bitrate']<=maxBitrate:
+#                            url = item['url']
+#                    if not rtmpMain in url or ("mp4?" in url and "auth=" in url):
+#                        debug("no azvod server in list 0")
+#                        debug(contentT)
+#                        if len(content['message']['body']['urlSets']['streamingURLInfoSet']) > 1:
+#                            if selectQuality or usePrimeProxy:
+#                                streamTitles = []
+#                                streamBitrates = []
+#                                streamURLs = []
+#                            for item in content['message']['body']['urlSets']['streamingURLInfoSet'][1]['streamingURLInfo']:
+#                                if selectQuality or usePrimeProxy:
+#                                    streamTitles.append(str(item['bitrate'])+"kb")
+#                                    streamBitrates.append(item['bitrate'])
+#                                    streamURLs.append(item['url'])
+#                                elif item['bitrate']<=maxBitrate:
+#                                    url = item['url']
+#                            debug("using alternative list index 1")
+#                            debug(content['message']['body']['urlSets']['streamingURLInfoSet'][1]['streamingURLInfo'])
+#                        else:
+#                            debug("unable to use alternative list, flash playback with rtmp will be used")
+#                            pass
+#                    if url:
+#                        if selectQuality:
+#                            dialog = xbmcgui.Dialog()
+#                            nr=dialog.select(translation(30059), streamTitles)
+#                            if nr>=0:
+#                              url=streamURLs[nr]
+#                        if url.startswith("rtmpe"):
+#                            urlproto = "rtmpe://"
+#                            urlsite = url[len(urlproto):url.find("/", len(urlproto))]
+#                            urlrequest = url[url.find('mp4:')+4:]
+#                            if (not rtmpMain in urlsite or ("mp4?" in url and "auth=" in url)) and not noFlash:
+#                                debug("Using flash playback")
+#                                flash_req1 = url[url.find(urlsite)+len(urlsite) + 1:url.find('/mp4:')]
+#                                flash_tcUrl = urlproto + urlsite + ":1935/" + flash_req1 + "/"
+#                                flash_app = flash_req1
+#                                flash_playpath = url[url.find('mp4:'):]
+#                                flash_url = url.replace('rtmpe','rtmp')
+#                                url = flash_url+' swfVfy=1 swfUrl='+matchSWF[0]+' pageUrl='+urlMain+'/dp/'+videoID+' app='+flash_app+' playpath='+flash_playpath+' tcUrl=' + flash_tcUrl
+#                            else:
+#                                debug("Using http playback")
+#                                url = 'http://' + urlsite + "/" + urlrequest
+#                            if playTrailer or (selectQuality and cMenu):
+#                                title = matchTitle[0]
+#                                listitem = xbmcgui.ListItem(title, path=url, thumbnailImage=thumbUrl)
+#                                xbmc.Player().play(url, listitem)
+#                            else:
+#                                if not usePrimeProxy: # or not helloPrimeProxy():
+#                                    if usePrimeProxy:
+#                                        xbmc.executebuiltin('XBMC.Notification(Info:,' + "PrimeProxy connection failed" + ',10000,'+icon+')')
+#                                    title = matchTitle[0]
+#                                    listitem = xbmcgui.ListItem(title, path=url, thumbnailImage=thumbUrl)
+#                                    xbmcplugin.setResolvedUrl(pluginhandle, True, listitem)
+#                                else:
+#                                    useStreamingIndex = 0
+#                                    title = matchTitle[0]
+#                                    for w,i in enumerate(streamURLs):
+#                                        wurl = i
+#                                        wproto = "rtmpe://"
+#                                        wsite = wurl[len(wproto):wurl.find("/", len(wproto))]
+#                                        wrequest = wurl[wurl.find('mp4:')+4:]
+#                                        streamURLs[w] = { 'url' : 'http://' + wsite + "/" + wrequest, 'bitrate': streamBitrates[w]}
+#                                        if url == streamURLs[w]['url']:
+#                                            useStreamingIndex = w
+#                                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#                                    primeproxyjson = json.dumps({"asin": videoID, "setProperties": {"StreamingIndex": useStreamingIndex, "Runtime" : asinruntime, "StreamingList": streamURLs, "ThumbnailImage": thumbUrl, "Title": title}})
+#                                    primeproxyjson = base64.b64encode(primeproxyjson) + "\r\n"
+#                                    s.connect(("127.0.0.1", 59910))
+#                                    s.sendall(primeproxyjson)
+#                                    pcdata = ""
+#                                    while not "\r\n" in pcdata:
+#                                        pcdata += s.recv(1024)
+#                                        pass
+#                                    s.close()
+#                                    title = matchTitle[0]
+#                                    listitem = xbmcgui.ListItem(title, path="http://127.0.0.1:59950/"+videoID + ".mp4", thumbnailImage=thumbUrl)
+#                                    pcdata = json.loads(base64.b64decode(pcdata))
+#                                    if "status" in pcdata and pcdata["status"] == "success":
+#                                        xbmcplugin.setResolvedUrl(pluginhandle, True, listitem)
+#                                    else:
+#                                        xbmcplugin.setResolvedUrl(pluginhandle, False, listitem)
+#
+#
+#                        elif url.startswith("http"):
+#                            dialog = xbmcgui.Dialog()
+#                            if dialog.yesno('Info', translation(30085)):
+#                                content = getUnicodePage(urlMainS+"/gp/video/settings/ajax/player-preferences-endpoint.html", "rurl="+urllib.quote_plus(str(urlMainS+"/gp/video/settings","utf8"))+"&csrfToken="+urllib.quote_plus(addon.getSetting('csrfToken').encode("utf8"))+"&aiv-pp-toggle=flash")
+#                                xbmc.executebuiltin('XBMC.Notification(Info:,'+translation(30086)+',10000,'+icon+')')
+#                                playVideo(videoID, selectQuality)
+#                    else:
+#                        url = ''
+#                        diag = xbmcgui.Dialog()
+#                        diag.ok(translation(30092), translation(30093))
+#                else:
+#                    diag = xbmcgui.Dialog()
+#                    diag.ok(translation(30094), translation(30095))
+#    else:
+#        xbmc.executebuiltin('XBMC.Notification(Info:,'+translation(30082)+',10000,'+icon+')')
    
 
 def showInfo(videoID):
