@@ -743,8 +743,12 @@ def helloPrimeProxy():
         return False
 
 def playVideo(videoID, selectQuality=False, playTrailer=False):
-	debug("Start Player for videoID=" + videoID)
-	xbmc.Player().play("https://www.amazon.de/piv-apk-play?asin=" + videoID)
+    if playTrailer:
+        debug("Start Trailer for videoID=" + videoID)
+        xbmc.Player().play("https://www.amazon.de/piv-apk-play?asin=" + videoID + "&playTrailer=T")
+    else:
+        debug("Start Player for videoID=" + videoID)
+        xbmc.Player().play("https://www.amazon.de/piv-apk-play?asin=" + videoID)
 	
 #    streamTitles = []
 #    streamBitrates = []
