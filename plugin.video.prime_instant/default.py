@@ -959,7 +959,7 @@ def playVideo(videoID, selectQuality=False, playTrailer=False):
 def showInfo(videoID):
     xbmcplugin.setContent(pluginhandle, "movies")
     content = getUnicodePage(urlMain+"/dp/"+videoID + "/?_encoding=UTF8")
-    match=re.compile('property="og:title" content="Watch (.+?) Online - Amazon Instant Video"', re.DOTALL).findall(content)
+    match=re.compile('property="og:title" content="(.+?) [(][)] online ansehen - Amazon Video"', re.DOTALL).findall(content)
     title = match[0]
     match=re.compile('class="release-year".*?>(.+?)<', re.DOTALL).findall(content)
     year = match[0]
