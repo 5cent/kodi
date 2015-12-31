@@ -399,7 +399,7 @@ def listMovies(url):
     for i in range(1, len(spl), 1):
         entry = spl[i]
         match = re.compile('data-asin="(.+?)"', re.DOTALL).findall(entry)
-        if match and ">Prime Video<" in entry:
+        if match and "Inkludiert in Ihrem Prime Abo." in entry:
             videoID = match[0]
             match1 = re.compile('title="(.+?)"', re.DOTALL).findall(entry)
             match2 = re.compile('class="ilt2">(.+?)<', re.DOTALL).findall(entry)
@@ -461,7 +461,7 @@ def listShows(url):
             if ">Amazon Video:<" in entry:
                 isPaidVideo = True
         #if match and ">Prime Instant Video<" in entry:
-        if match and ((">Prime Video<" in entry) or (isPaidVideo)):
+        if match and (("Inkludiert in Ihrem Prime Abo." in entry) or (isPaidVideo)):
             videoID = match[0]
             match1 = re.compile('title="(.+?)"', re.DOTALL).findall(entry)
             match2 = re.compile('class="ilt2">(.+?)<', re.DOTALL).findall(entry)
